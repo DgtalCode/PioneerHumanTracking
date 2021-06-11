@@ -133,6 +133,8 @@ np.set_printoptions(threshold=np.inf)
 
 old_time = 0
 
+newCommand = False
+
 while True:
     #print()
 
