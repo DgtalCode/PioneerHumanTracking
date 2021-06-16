@@ -1,9 +1,11 @@
 import cv2
-import time
 import mediapipe as mp
 import numpy as np
 from piosdk import Pioneer
 from collections import namedtuple
+from SkeletonPosePredictor.PosePredictor import PosePredictor
+
+predictor = PosePredictor()
 
 Point = namedtuple("Point", "x y visibility")
 
@@ -19,6 +21,8 @@ skeletonDetectorConfigurator = mp.solutions.pose
 skDetector = skeletonDetectorConfigurator.Pose(static_image_mode=False,
                                                min_tracking_confidence=0.5,
                                                min_detection_confidence=0.5, model_complexity=2)
+
+key = -1
 
 cordX = .0
 cordY = .0
@@ -146,6 +150,16 @@ while True:
         x = round(IMG_WIDTH * base_point[0])
         y = round(IMG_HEIGHT * base_point[1])
         cv2.circle(frame, (x, y), 3, (255,255,0), 2)
+
+        if key == ord('0'):
+            predictor.start_writing(0)
+        if key == ord('1'):
+            predictor.start_writing(1)
+        if key == ord('2'):
+            predictor.start_writing(2)
+        if key == ord('x'):
+            predictor.save_data()
+        predictor.update_data(relative_points)
 
     mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks,
                               skeletonDetectorConfigurator.POSE_CONNECTIONS)
