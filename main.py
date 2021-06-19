@@ -2,12 +2,10 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from piosdk import Pioneer
-from collections import namedtuple
 from SkeletonPosePredictor.PosePredictor import PosePredictor
 
-predictor = PosePredictor()
-
-Point = namedtuple("Point", "x y visibility")
+# predictor = PosePredictor()
+predictor = PosePredictor('./data.json')
 
 useIntegratedCam = True
 
@@ -128,6 +126,8 @@ while True:
         img = pioneer.get_raw_video_frame()
         frame = cv2.imdecode(np.frombuffer(img, dtype=np.uint8), cv2.IMREAD_COLOR)
 
+    frame = cv2.flip(frame, 1)
+
     IMG_WIDTH = np.shape(frame)[1]
     IMG_HEIGHT = np.shape(frame)[0]
 
@@ -137,18 +137,14 @@ while True:
 
     if detected_skeletons.pose_landmarks is not None:
         points = detected_skeletons.pose_landmarks.landmark
-        relative_points = []
 
-        base_point = Point((points[12].x + points[11].x)/2,
-                           (points[12].y + points[11].y)/2,
-                           (points[12].visibility + points[11].visibility)/2)
+        relative_points, base_point = predictor.calculate_relative_points(points)
 
-        for point in points:
-            relative_point = Point(point.x - base_point.x, point.y - base_point.y, point.visibility)
-            relative_points.append(relative_point)
+        # print(relative_points)
+        # print(np.array(relative_points, dtype=np.double).flatten())
 
-        x = round(IMG_WIDTH * base_point[0])
-        y = round(IMG_HEIGHT * base_point[1])
+        x = round(IMG_WIDTH * base_point.x)
+        y = round(IMG_HEIGHT * base_point.y)
         cv2.circle(frame, (x, y), 3, (255,255,0), 2)
 
         if key == ord('0'):
@@ -160,6 +156,11 @@ while True:
         if key == ord('x'):
             predictor.save_data()
         predictor.update_data(relative_points)
+        if key == ord('9'):
+            # print(relative_points)
+            # print(len(relative_points))
+            a = predictor.predict([relative_points])
+            print(a)
 
     mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks,
                               skeletonDetectorConfigurator.POSE_CONNECTIONS)
