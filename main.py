@@ -3,6 +3,7 @@ import mediapipe as mp
 import numpy as np
 from piosdk import Pioneer
 from SkeletonPosePredictor.PosePredictor import PosePredictor
+import time
 
 # predictor = PosePredictor()
 predictor = PosePredictor('./data.json')
@@ -116,6 +117,9 @@ def not_none(*args):
 
 frame = None
 
+predict = False
+predict_time = time.time()
+
 while True:
     # считывание кадра либо с веб-камеры, либо с пионера
     if useIntegratedCam:
@@ -138,14 +142,11 @@ while True:
     if detected_skeletons.pose_landmarks is not None:
         points = detected_skeletons.pose_landmarks.landmark
 
-        relative_points, base_point = predictor.calculate_relative_points(points)
+        relative_points = predictor.calculate_relative_points(points)
+        # print(type(relative_points))
 
         # print(relative_points)
         # print(np.array(relative_points, dtype=np.double).flatten())
-
-        x = round(IMG_WIDTH * base_point.x)
-        y = round(IMG_HEIGHT * base_point.y)
-        cv2.circle(frame, (x, y), 3, (255,255,0), 2)
 
         if key == ord('0'):
             predictor.start_writing(0)
@@ -159,8 +160,11 @@ while True:
         if key == ord('9'):
             # print(relative_points)
             # print(len(relative_points))
+            predict = not predict
+        if predict and time.time() - predict_time > 1:
             a = predictor.predict([relative_points])
             print(a)
+            predict_time = time.time()
 
     mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks,
                               skeletonDetectorConfigurator.POSE_CONNECTIONS)
