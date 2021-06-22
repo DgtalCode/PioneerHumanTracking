@@ -2,7 +2,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from piosdk import Pioneer
-from SkeletonPosePredictor.PosePredictor import PosePredictor
+from SkeletonPosePredictor import PosePredictor
 import time
 
 # predictor = PosePredictor()
@@ -55,62 +55,13 @@ takePhoto = False
 takePhotoTime = 0
 
 nPoints = 32
-JOINTS_LIST = {"neck": [1, 0],
-               "right_clavicle": [1, 2],
-               "right_arm": [2, 3],
-               "right_forearm": [3, 4],
-               "left_clavicle": [1, 5],
-               "left_arm": [5, 6],
-               "left_forearm": [6, 7],
-               "right_body": [1, 8],
-               "right_hip": [8, 9],
-               "right_calf": [9, 10],
-               "left_body": [1, 11],
-               "left_hip": [11, 12],
-               "left_calf": [12, 13],
-               "right_eye": [0, 14],
-               "right_ear": [14, 16],
-               "left_eye": [0, 15],
-               "left_ear": [15, 17]}
-
-
-'''~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!!!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~'''
-
-
-def sign(num):
-    """ Возврат знака числа """
-    return 1 if num >= 0 else -1
-
-
-def vec(name):
-    """ создает вектор на основе задетекченных точек по переданному имени """
-    pass
-
-
-def angle(vec_1, vec_2):
-    """ считает угол между двумя векторами """
-    if vec_1 is None or vec_2 is None:
-        return None
-    # скалярное произведение векторов / (длина вектора 1 * длина вектора 2)
-    a = np.dot(vec_1, vec_2) / (np.linalg.norm(vec_1) * np.linalg.norm(vec_2))
-    a = -(np.arccos(a) * sign(vec_1[0]))
-    return np.degrees(a)
-
-
-def near(real_value, value, accuracy=15):
-    """ Считает, равны ли примерно переданные значения """
-    if real_value is None:
-        return False
-    if value - accuracy <= real_value <= value + accuracy:
-        return True
-
-
-def not_none(*args):
-    """ проверят, не является ли неизвестным хотя бы один из переданных аргументов """
-    for arg in args:
-        if arg is None:
-            return False
-    return True
+JOINTS_LIST = {"neck": [None, 0],
+               "right_clavicle": [None, 12],
+               "right_arm": [12, 14],
+               "right_forearm": [14, 16],
+               "left_clavicle": [None, 11],
+               "left_arm": [11, 13],
+               "left_forearm": [13, 15]}
 
 
 '''~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ГЛАВНЫЙ ЦИКЛ~~~~~~~~~~~~~~~~~~~~~~~~~~~'''
