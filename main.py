@@ -2,11 +2,11 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from piosdk import Pioneer
-from SkeletonPosePredictor import PosePredictor
+from SkeletonPosePredictor import VecPosePredictor
 import time
 
 # predictor = PosePredictor()
-predictor = PosePredictor('./data.json')
+predictor = VecPosePredictor('./data.json')
 
 useIntegratedCam = True
 
