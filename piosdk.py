@@ -31,6 +31,9 @@ class Pioneer:
 
         self.__execute_once = True
 
+        self.__in_air = False
+        self.__landed = True
+
         try:
             self.__video_control_socket.connect(video_control_address)
             self.__video_socket.bind(self.__video_control_socket.getsockname())
@@ -53,7 +56,6 @@ class Pioneer:
             pass
 
         self.__thread_moving = threading.Thread(target=self.__thread_moving_control)
-        # self.__thread_moving.daemon = True
         self.__moving_done_event = threading.Event()
         self.__moving_done_event.clear()
 
@@ -212,6 +214,7 @@ class Pioneer:
 
     def __takeoff(self):
         i = 0
+        self.__landed = False
         if self.__logger:
             print('takeoff command send')
         while True:
@@ -239,12 +242,14 @@ class Pioneer:
                     sys.exit()
             else:
                 i += 1
+        self.__in_air = True
 
     def takeoff(self):
         self.command_id = 1
 
     def __land(self):
         i = 0
+        self.__in_air = False
         if self.__logger:
             print('land command send')
         while True:
@@ -271,6 +276,7 @@ class Pioneer:
                     self.land()
             else:
                 i += 1
+        self.__landed = True
 
     def land(self):
         self.command_id = 2
@@ -497,3 +503,9 @@ class Pioneer:
                                                             self.__mavlink_socket.target_component, channel_1,
                                                             channel_2, channel_3, channel_4, channel_5, channel_6,
                                                             channel_7, channel_8)
+
+    def in_air(self):
+        return self.__in_air
+
+    def landed(self):
+        return self.__landed
