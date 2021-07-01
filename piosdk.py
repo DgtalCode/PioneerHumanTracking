@@ -1,5 +1,4 @@
 from pymavlink import mavutil
-import asyncio
 import threading
 import socket
 import sys
@@ -54,9 +53,8 @@ class Pioneer:
             pass
 
         self.__thread_moving = threading.Thread(target=self.__thread_moving_control)
-        self.__thread_moving.daemon = True
+        # self.__thread_moving.daemon = True
         self.__moving_done_event = threading.Event()
-        self.__thread_moving.start()
         self.__moving_done_event.clear()
 
     def get_raw_video_frame(self):
@@ -135,7 +133,6 @@ class Pioneer:
 
     def __thread_moving_control(self):
         while True:
-            #print(self.__execute_once, self.command_id)
             if self.__execute_once:
                 if self.command_id == 1:
                     self.__takeoff()
@@ -183,6 +180,7 @@ class Pioneer:
                     sys.exit()
             else:
                 i += 1
+        self.__thread_moving.start()
 
     def disarm(self):
         i = 0
