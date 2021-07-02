@@ -8,7 +8,7 @@
 Для редактирования кода подходит любоя среда разработки, однако рекомендуется использовать [PyCharm](https://www.jetbrains.com/pycharm/download/#section=windows). <br><br>
 Скачивание проекта:
 ```
-  git clone --single-branch --branch dev https://github.com/DgtalCode/PioneerHumanTracking.git
+  git clone --single-branch --branch main https://github.com/DgtalCode/PioneerHumanTracking.git
 ```
 Необходимые библиотеки, которые устанавливаются из pip:
 ```bash
