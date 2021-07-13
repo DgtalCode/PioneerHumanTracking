@@ -10,20 +10,21 @@
 ```
   git clone --single-branch --branch main https://github.com/DgtalCode/PioneerHumanTracking.git
 ```
-Необходимые библиотеки, которые устанавливаются из pip:
+Установка необходимых библиотек, которые устанавливаются из pip:
 ```bash
-  pip install numpy
-  pip install opencv-python
-  pip install opencv-contrib-python
-  pip install pymavlink
-  pip install mediapipe
+  pip install -r requirements.txt
 ```
 
 <b>Возможные проблемы при текущей реализации проекта:</b> 
 <ul>
   <li>Иногда возможно определение скелета с невысокой точностью. Попробуйте изменить фон, чтобы тело было контрастно.</li>
   <li>Недостаточная скорость реакции на изменение положения человека в пространстве. Исправляется постепенным увеличением коэффициентов регуляторов</li>
+  <li>Ошибка при установке пакета pymavlink. Для решения попробуйте выполнить следующую команду:</li>
 </ul>
+
+```
+  sudo apt-get install libxml2-dev libxslt-dev python-dev
+```
 
 ## Команды
 Поднятая вверх согнутая левая рука - подлет ближе <br>
