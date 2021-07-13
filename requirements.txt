@@ -1,0 +1,8 @@
+future
+lxml
+pyyaml
+numpy
+pymavlink
+mediapipe
+opencv-python
+opencv-contrib-python
