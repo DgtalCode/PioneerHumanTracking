@@ -1,5 +1,5 @@
 <details>
-<summary style="font-size:30px; font-weight: bold">PioneerHumanTracking - Оглавление</summary>
+<summary> <font size="6"> <b>PioneerHumanTracking - Оглавление</b>> </font> </summary>
 
 - [Описание проекта](#-Описание-проекта)
   * [Описание](#Описание)
