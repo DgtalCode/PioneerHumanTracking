@@ -87,6 +87,7 @@ Parts = namedtuple("Parts", JOINTS_LIST.keys())
 Part = namedtuple("Part", 'x y angle')
 
 
+# объявление функции remap
 def remap(oldValue, oldMin, oldMax, newMin, newMax):
     """
     Функция для преобразования числовых значений из одного диапазона в другой
@@ -98,8 +99,9 @@ def remap(oldValue, oldMin, oldMax, newMin, newMax):
         newRange = (newMax - newMin)
         newValue = (((oldValue - oldMin) * newRange) / oldRange) + newMin
     return newValue
+# конец объявления
 
-
+# объявление функции convert_points
 def convert_points(points):
     """
     Функция для конвертации определенных нейросетью точек скелета
@@ -126,8 +128,10 @@ def convert_points(points):
                                       visibility=p.visibility))
     converted_points.append(base_point)
     return converted_points
+# конец объявления
 
 
+# объявление функции ang
 def ang(v1):
     """
     Функция рассчитывает направление вектора на плоскости и возвращает угол от 0 до 359
@@ -135,8 +139,10 @@ def ang(v1):
     angle = round(np.degrees(np.arctan2(v1[1], -v1[0])))
     angle = remap(angle, -180, 179, 0, 359)
     return round(angle)
+# конец объявления
 
 
+# объявление функции generate_parts_vectors
 def generate_parts_vectors(pts):
     """
     Функция для представления частей тела в виде векторов.
@@ -157,8 +163,10 @@ def generate_parts_vectors(pts):
     # конвертация в массив, к элементам которого можно обращаться через точку
     j = Parts(**j)
     return j
+# конец объявления
 
 
+# объявление функции eq
 def eq(num1, num2, err=10):
     """
     функция для сравнивания двух чисел с погрешностью
@@ -166,8 +174,10 @@ def eq(num1, num2, err=10):
     if num1 < 0 or num2 < 0:
       return True
     return True if abs(num1-num2) <= err else False
+# конец объявления
 
 
+# объявление функции eq_all
 def eq_all(lside=[], rside=[], neck=[]):
     """
     функция для быстрого сравнения всех прописанных векторов
@@ -187,6 +197,7 @@ def eq_all(lside=[], rside=[], neck=[]):
         ans = eq(parts.neck.angle) and \
               ans
     return ans
+# конец объявления
 
 
 '''~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ГЛАВНЫЙ ЦИКЛ~~~~~~~~~~~~~~~~~~~~~~~~~~~'''
