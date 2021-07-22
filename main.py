@@ -22,18 +22,21 @@ skeletonDetectorConfigurator = mp.solutions.pose
 # создание детектора с некоторыми настройками
 skDetector = skeletonDetectorConfigurator.Pose(static_image_mode=False,
                                                min_tracking_confidence=0.8,
-                                               min_detection_confidence=0.8, model_complexity=2)
+                                               min_detection_confidence=0.8,
+                                               model_complexity=2)
 
 # объявление переменных, хранящих ширину и высоту изображения
 IMGW, IMGH = None, None
 
-# объявление переменной, хранящей значение нажатой кнопки
+# объявление переменной, хранящей значение нажатой кнопки на клавиатуре
 key = -1
 
 # объявление переменной, хранящей время начала отсчета таймера для фотографирования
+# то есть текущее время на момент прихода команды на создание фотографии
 take_photo_time = -1
 
 # объявление переменной, хранящей время начала отсчета таймера для следующего детектирования жестов
+# то есть текущее время на момент детектирования жеста, для создание небольшой задержки до след. срабатывания
 pose_detected = -1
 
 # переменные, хранящие положение квадрокоптера в пространстве
@@ -42,6 +45,7 @@ cordY = .0
 cordZ = 1.5
 yaw = np.radians(0)
 
+# шаг, на который будет происходить изменение положения квадрокоптера при выполнении команд
 stepXY = 0.2
 
 # переменные для работы ПД регулятора при повороте
@@ -63,9 +67,6 @@ y_errold = 0
 y_kp = .12
 y_kd = .01
 
-# координаты базовой точки, когда программа последний раз ее видела
-last_seen = None
-
 # имена частей тела с индексами точек, образующих их
 JOINTS_LIST = {"neck": [33, 0],
                "left_clavicle": [33, 12],
@@ -75,18 +76,21 @@ JOINTS_LIST = {"neck": [33, 0],
                "right_arm": [11, 13],
                "right_forearm": [13, 15]}
 
-# массив Точка имеет 4 именованных параметра, описывающих точку
+# массив Точка имеет 4 именованных параметра, описывающих точку скелета
 Point = namedtuple('Point', 'x y z visibility')
 
 # массив, содержащий сгенерированные части тела в виде векторов,
 # в котором к элементам можно обратиться через точку
-Joints = namedtuple("Joints", JOINTS_LIST.keys())
+Parts = namedtuple("Parts", JOINTS_LIST.keys())
 
 # массив, описывающий конкретную часть тела в виде вектора
-Joint = namedtuple("Joint", 'x y angle')
+Part = namedtuple("Part", 'x y angle')
 
 
 def remap(oldValue, oldMin, oldMax, newMin, newMax):
+    """
+    Функция для преобразования числовых значений из одного диапазона в другой
+    """
     oldRange = (oldMax - oldMin)
     if (oldRange == 0):
         newValue = newMin
@@ -125,12 +129,15 @@ def convert_points(points):
 
 
 def ang(v1):
+    """
+    Функция рассчитывает направление вектора на плоскости и возвращает угол от 0 до 359
+    """
     angle = round(np.degrees(np.arctan2(v1[1], -v1[0])))
     angle = remap(angle, -180, 179, 0, 359)
     return round(angle)
 
 
-def generate_joints_vectors(pts):
+def generate_parts_vectors(pts):
     """
     Функция для представления частей тела в виде векторов.
     Принимает набор точек, а возвращает вектора.
@@ -145,10 +152,10 @@ def generate_joints_vectors(pts):
         vec_y = pts[pos[1]].y - pts[pos[0]].y
         # сохранение вектора с именем части тела
         j.update({
-            joint[0]: Joint(vec_x, vec_y, ang([vec_x, vec_y]))
+            joint[0]: Part(vec_x, vec_y, ang([vec_x, vec_y]))
         })
     # конвертация в массив, к элементам которого можно обращаться через точку
-    j = Joints(**j)
+    j = Parts(**j)
     return j
 
 
@@ -156,6 +163,8 @@ def eq(num1, num2, err=10):
     """
     функция для сравнивания двух чисел с погрешностью
     """
+    if num1 < 0 or num2 < 0:
+      return True
     return True if abs(num1-num2) <= err else False
 
 
@@ -165,17 +174,17 @@ def eq_all(lside=[], rside=[], neck=[]):
     """
     ans = True
     if lside:
-        ans = eq(joints.left_clavicle.angle, lside[0]) and \
-              eq(joints.left_arm.angle, lside[1]) and \
-              eq(joints.left_forearm.angle, lside[2]) and \
+        ans = eq(parts.left_clavicle.angle, lside[0]) and \
+              eq(parts.left_arm.angle, lside[1]) and \
+              eq(parts.left_forearm.angle, lside[2]) and \
               ans
     if rside:
-        ans = eq(joints.right_clavicle.angle, rside[0]) and \
-              eq(joints.right_arm.angle, rside[1]) and \
-              eq(joints.right_forearm.angle, rside[2]) and \
+        ans = eq(parts.right_clavicle.angle, rside[0]) and \
+              eq(parts.right_arm.angle, rside[1]) and \
+              eq(parts.right_forearm.angle, rside[2]) and \
               ans
     if neck:
-        ans = eq(joints.neck.angle) and \
+        ans = eq(parts.neck.angle) and \
               ans
     return ans
 
@@ -219,11 +228,13 @@ while True:
         # (из диапазона от 0 до 1 в диапазон от 0 до ширины/высоты)
         converted_points = convert_points(points)
         # представление частей тела в виде векторов
-        joints = generate_joints_vectors(converted_points)
+        parts = generate_parts_vectors(converted_points)
 
         # отрисовка базовой точки (между лопатками)
         cv2.circle(frame, (converted_points[33].x, converted_points[33].y), 4, (255,0,0), 3)
 
+        # проверка, был ли найден жест
+        # необходима для создания задержки (промежутка) между детектированием
         if pose_detected == -1:
             # проверка направлений векторов и выявление поз
             if eq_all(lside=[180, 270, 45], rside=[0, 270, 135]):
