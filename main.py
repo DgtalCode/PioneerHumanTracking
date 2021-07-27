@@ -324,13 +324,14 @@ while True:
 
     # выход из программы при нажатии кнопки q
     if key == ord('q'):
+        pioneer.disarm()
         break
 
     # посадка при нажатии кнопки l
     if key == ord('l'):
         pioneer.command_id = 0
         pioneer.land()
-        pioneer.disarm()
+        #pioneer.disarm()
         cordX, cordY = 0, 0
         cordZ = 1.5
 
