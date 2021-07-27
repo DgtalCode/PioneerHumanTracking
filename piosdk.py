@@ -56,6 +56,7 @@ class Pioneer:
             pass
 
         self.__thread_moving = threading.Thread(target=self.__thread_moving_control)
+        self.__thread_moving.daemon = True
         self.__moving_done_event = threading.Event()
         self.__moving_done_event.clear()
 
