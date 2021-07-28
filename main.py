@@ -6,7 +6,7 @@ from collections import namedtuple
 import time
 
 # использование встроенной камеры или камеры квадрокоптера
-useIntegratedCam = False
+useIntegratedCam = True
 
 # создание источников видео в зависимости от переменной
 if not useIntegratedCam:
@@ -231,7 +231,7 @@ while True:
     detected_skeletons = skDetector.process(frame)
 
     # проверка, найдены ли точки и находится ли коптер в воздухе
-    if detected_skeletons.pose_landmarks is not None and pioneer.in_air():
+    if detected_skeletons.pose_landmarks is not None:
         # запись всех точек в переменную с более коротким именем
         points = detected_skeletons.pose_landmarks.landmark
 
@@ -276,8 +276,11 @@ while True:
                 pose_detected = time.time()
 
             elif eq_all(lside=[180, 225, 270], rside=[0, 315, 270]):
-                pioneer.land()
+                print("POSE 6")
                 pose_detected = time.time()
+                # если используется НЕ встроенная в компьютер камера
+                if not useIntegratedCam:
+                    pioneer.land()
 
         # если с момента обнаружения жеста прошла секунда - сбросить переменную, блокирующую детектирование
         if pose_detected != -1 and time.time() - pose_detected > 1:
@@ -289,28 +292,30 @@ while True:
             take_photo_time = -1
             pose_detected = -1
 
-    # если сконвертированные точки существуют, то ...
-    if converted_points:
-        # регулятор для удержания человека в центре изображения по рысканью (вращение вокруг своей оси)
-        yaw_err = -(IMGW // 2 - converted_points[33].x) * yaw_k
-        yaw_u = yaw_kp * yaw_err - yaw_kd * (yaw_err - yaw_errold)
-        yaw_errold = yaw_err
+    # если используется НЕ встроенная в компьютер камера
+    if not useIntegratedCam:
+        # если сконвертированные точки существуют, то работают регуляторы:
+        if converted_points:
+            # регулятор для удержания человека в центре изображения по рысканью (вращение вокруг своей оси)
+            yaw_err = -(IMGW // 2 - converted_points[33].x) * yaw_k
+            yaw_u = yaw_kp * yaw_err - yaw_kd * (yaw_err - yaw_errold)
+            yaw_errold = yaw_err
 
-        # регулятор определенного расстояния до человека по оси Y (вперед/назад)
-        y_err = -(-0.15 - converted_points[33].z)
-        y_u = y_kp * y_err - y_kd * (y_err - y_errold)
-        y_errold = y_err
+            # регулятор определенного расстояния до человека по оси Y (вперед/назад)
+            y_err = -(-0.15 - converted_points[33].z)
+            y_u = y_kp * y_err - y_kd * (y_err - y_errold)
+            y_errold = y_err
 
-        # регулятор для удержания человека в центре изображения по оси Z (вверх/вниз)
-        z_err = (IMGH // 2 - converted_points[33].y)
-        z_u = z_kp * z_err - z_kd * (z_err - z_errold)
-        z_errold = z_err
+            # регулятор для удержания человека в центре изображения по оси Z (вверх/вниз)
+            z_err = (IMGH // 2 - converted_points[33].y)
+            z_u = z_kp * z_err - z_kd * (z_err - z_errold)
+            z_errold = z_err
 
-        # обновление переменных, содержащих значения (координаты) для удержания коптером
-        yaw += yaw_u
-        cordY += y_u
-        cordZ += z_u
-        pioneer.go_to_local_point(cordX, cordY, cordZ, yaw=yaw)
+            # обновление переменных, содержащих значения (координаты) для удержания коптером
+            yaw += yaw_u
+            cordY += y_u
+            cordZ += z_u
+            pioneer.go_to_local_point(cordX, cordY, cordZ, yaw=yaw)
 
     # отрисовка всех точек и линий средствами используемой библиотеки
     mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks,
@@ -324,22 +329,27 @@ while True:
 
     # выход из программы при нажатии кнопки q
     if key == ord('q'):
-        pioneer.disarm()
+        # если используется НЕ встроенная в компьютер камера
+        if not useIntegratedCam:
+            pioneer.disarm()
         break
 
     # посадка при нажатии кнопки l
     if key == ord('l'):
-        pioneer.command_id = 0
-        pioneer.land()
-        #pioneer.disarm()
-        cordX, cordY = 0, 0
-        cordZ = 1.5
+        # если используется НЕ встроенная в компьютер камера
+        if not useIntegratedCam:
+            pioneer.command_id = 0
+            pioneer.land()
+            cordX, cordY = 0, 0
+            cordZ = 1.5
 
     # взлет при нажатии кнопки j
     if key == ord('j'):
-        pioneer.command_id = 0
-        pioneer.arm()
-        pioneer.takeoff()
+        # если используется НЕ встроенная в компьютер камера
+        if not useIntegratedCam:
+            pioneer.command_id = 0
+            pioneer.arm()
+            pioneer.takeoff()
 
 # завершение работы захвата изображений с камеры
 if useIntegratedCam:
