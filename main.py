@@ -6,7 +6,7 @@ from collections import namedtuple
 import time
 
 # использование встроенной камеры или камеры квадрокоптера
-useIntegratedCam = True
+useIntegratedCam = False
 
 # создание источников видео в зависимости от переменной
 if not useIntegratedCam:
