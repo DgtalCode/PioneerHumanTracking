@@ -5,15 +5,6 @@ from piosdk import Pioneer
 from collections import namedtuple
 import time
 
-# использование встроенной камеры или камеры квадрокоптера
-useIntegratedCam = False
-
-# создание источников видео в зависимости от переменной
-if not useIntegratedCam:
-    pioneer = Pioneer()
-else:
-    cap = cv2.VideoCapture(0)
-
 # создание объектов для работы нейросети:
 # для рисования
 mpDrawings = mp.solutions.drawing_utils
@@ -24,6 +15,15 @@ skDetector = skeletonDetectorConfigurator.Pose(static_image_mode=False,
                                                min_tracking_confidence=0.8,
                                                min_detection_confidence=0.8,
                                                model_complexity=2)
+
+# использование встроенной камеры или камеры квадрокоптера
+useIntegratedCam = False
+
+# создание источников видео в зависимости от переменной
+if not useIntegratedCam:
+    pioneer = Pioneer()
+else:
+    cap = cv2.VideoCapture(0)
 
 # объявление переменных, хранящих ширину и высоту изображения
 IMGW, IMGH = None, None
