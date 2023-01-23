@@ -1,9 +1,7 @@
 future
 lxml
-wheel
-pyyaml
 numpy
 pymavlink
-mediapipe
-opencv-python
+pioneer_sdk
 opencv-contrib-python
+mediapipe

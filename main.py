@@ -1,7 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-from piosdk import Pioneer
+from pioneer_sdk import Pioneer, Camera
 from collections import namedtuple
 import time
 
@@ -12,9 +12,9 @@ mpDrawings = mp.solutions.drawing_utils
 skeletonDetectorConfigurator = mp.solutions.pose
 # создание детектора с некоторыми настройками
 skDetector = skeletonDetectorConfigurator.Pose(static_image_mode=False,
-                                               min_tracking_confidence=0.8,
-                                               min_detection_confidence=0.8,
-                                               model_complexity=2)
+                                               min_tracking_confidence=0.5,
+                                               min_detection_confidence=0.5,
+                                               model_complexity=1)
 
 # использование встроенной камеры или камеры квадрокоптера
 useIntegratedCam = False
@@ -22,6 +22,7 @@ useIntegratedCam = False
 # создание источников видео в зависимости от переменной
 if not useIntegratedCam:
     pioneer = Pioneer()
+    pioneer_cam = Camera()
 else:
     cap = cv2.VideoCapture(0)
 
@@ -218,8 +219,8 @@ while True:
         if not ret:
             continue
     else:
-        img = pioneer.get_raw_video_frame()
-        frame = cv2.imdecode(np.frombuffer(img, dtype=np.uint8), cv2.IMREAD_COLOR)
+        frame = pioneer_cam.get_cv_frame()
+
     # отзеркаливание изображения
     frame = cv2.flip(frame, 1)
 
@@ -288,7 +289,7 @@ while True:
 
         # если время вызова таймера существует и уже прошло больше 5 секунд, то сохранить фото
         if take_photo_time != -1 and time.time() - take_photo_time > 5:
-            cv2.imwrite("image", frame)
+            cv2.imwrite("image.png", frame)
             take_photo_time = -1
             pose_detected = -1
 
