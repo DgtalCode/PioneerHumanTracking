@@ -1,9 +1,11 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-from pioneer_sdk import Pioneer, Camera
+from pioneer_sdk import Pioneer
+from cam1 import Camera
 from collections import namedtuple
 import time
+
 
 # создание объектов для работы нейросети:
 # для рисования
@@ -21,7 +23,7 @@ useIntegratedCam = False
 
 # создание источников видео в зависимости от переменной
 if not useIntegratedCam:
-    pioneer = Pioneer()
+    pioneer = Pioneer(logger=True,log_connection=True)
     pioneer_cam = Camera()
 else:
     cap = cv2.VideoCapture(0)
@@ -36,37 +38,38 @@ key = -1
 # то есть текущее время на момент прихода команды на создание фотографии
 take_photo_time = -1
 
+# объявление переменной для хранения времени последней отправки команды движения
+# чтобы не спамить командами
+async_waiter = -1
+
 # объявление переменной, хранящей время начала отсчета таймера для следующего детектирования жестов
 # то есть текущее время на момент детектирования жеста, для создание небольшой задержки до след. срабатывания
 pose_detected = -1
 
-# переменные, хранящие положение квадрокоптера в пространстве
-cordX = .0
-cordY = .0
-cordZ = 1.5
-yaw = np.radians(0)
-
-# шаг, на который будет происходить изменение положения квадрокоптера при выполнении команд
-stepXY = 0.2
+# переменные, хранящие линейные скорости квадрокоптера
+vx = .0
+vy = .0
+vz = .0
+vr = np.radians(0)
 
 # переменные для работы ПД регулятора при повороте
 yaw_err = 0
 yaw_errold = 0
-yaw_kp = .005
-yaw_kd = .0025
-yaw_k = 0.01
+yaw_kp = .04
+yaw_kd = .02
+yaw_k = 0.1
 
 # переменные для работы ПД регулятора при движении вверх/вниз
 z_err = 0
 z_errold = 0
-z_kp = .00004
-z_kd = .00001
+z_kp = 0.008
+z_kd = 0.001
 
 # переменные для работы ПД регулятора при движении вперед/назад
 y_err = 0
 y_errold = 0
-y_kp = .12
-y_kd = .01
+y_kp = 10
+y_kd = 2
 
 # имена частей тела с индексами точек, образующих их
 JOINTS_LIST = {"neck": [33, 0],
@@ -86,7 +89,6 @@ Parts = namedtuple("Parts", JOINTS_LIST.keys())
 
 # массив, описывающий конкретную часть тела в виде вектора
 Part = namedtuple("Part", 'x y angle')
-
 
 # объявление функции remap
 def remap(oldValue, oldMin, oldMax, newMin, newMax):
@@ -168,13 +170,18 @@ def generate_parts_vectors(pts):
 
 
 # объявление функции eq
-def eq(num1, num2, err=10):
+def eq(num1, num2, err=15):
     """
     функция для сравнивания двух чисел с погрешностью
     """
     if num1 < 0 or num2 < 0:
-      return True
-    return True if abs(num1-num2) <= err else False
+        return True
+    if abs(num1-num2) <= err:
+        return True
+    elif (360-num1) <= err and abs(360 - num1 - num2) <= err:
+        return True
+    else:
+        return False
 # конец объявления
 
 
@@ -185,18 +192,20 @@ def eq_all(lside=[], rside=[], neck=[]):
     """
     ans = True
     if lside:
+        # print('Left: ', parts.left_clavicle.angle, parts.left_arm.angle, parts.left_forearm.angle)
         ans = eq(parts.left_clavicle.angle, lside[0]) and \
               eq(parts.left_arm.angle, lside[1]) and \
               eq(parts.left_forearm.angle, lside[2]) and \
               ans
     if rside:
+        # print("Right: ", parts.right_clavicle.angle, parts.right_arm.angle, parts.right_forearm.angle)
         ans = eq(parts.right_clavicle.angle, rside[0]) and \
               eq(parts.right_arm.angle, rside[1]) and \
               eq(parts.right_forearm.angle, rside[2]) and \
               ans
     if neck:
-        ans = eq(parts.neck.angle) and \
-              ans
+        ans = eq(parts.neck.angle) and ans
+    # print('\n')
     return ans
 # конец объявления
 
@@ -205,14 +214,15 @@ def eq_all(lside=[], rside=[], neck=[]):
 # объявление массива для хранения конвертированных точек
 converted_points = []
 
-# если используется не интегрированная камера
-if not useIntegratedCam:
-    # включение двигателей коптера
-    pioneer.arm()
-    # взлет
-    pioneer.takeoff()
+# # если используется не интегрированная камера
+# if not useIntegratedCam:
+#     # включение двигателей коптера
+#     pioneer.arm()
+#     # взлет
+#     pioneer.takeoff()
 
 while True:
+    vx, vy, vz, vr = 0, 0, 0, 0
     # считывание кадра либо с веб-камеры, либо с коптера
     if useIntegratedCam:
         ret, frame = cap.read()
@@ -220,6 +230,7 @@ while True:
             continue
     else:
         frame = pioneer_cam.get_cv_frame()
+        # frame = cv2.resize(frame, (640, 480))
 
     # отзеркаливание изображения
     frame = cv2.flip(frame, 1)
@@ -230,9 +241,10 @@ while True:
 
     # определение точек скелета
     detected_skeletons = skDetector.process(frame)
+    # detected_skeletons = None
 
-    # проверка, найдены ли точки и находится ли коптер в воздухе
-    if detected_skeletons.pose_landmarks is not None:
+    # проверка, найдены ли точки
+    if detected_skeletons and detected_skeletons.pose_landmarks is not None:
         # запись всех точек в переменную с более коротким именем
         points = detected_skeletons.pose_landmarks.landmark
 
@@ -243,12 +255,13 @@ while True:
         parts = generate_parts_vectors(converted_points)
 
         # отрисовка базовой точки (между лопатками)
-        cv2.circle(frame, (converted_points[33].x, converted_points[33].y), 4, (255,0,0), 3)
+        cv2.circle(frame, (converted_points[33].x, converted_points[33].y), 4, (255, 0, 0), 3)
 
         # проверка, был ли найден жест
         # необходима для создания задержки (промежутка) между детектированием
         if pose_detected == -1:
             # проверка направлений векторов и выявление поз
+            # крещенные руки на груди
             if eq_all(lside=[180, 270, 45], rside=[0, 270, 135]):
                 print("POSE 1")
                 if take_photo_time == -1:
@@ -256,35 +269,47 @@ while True:
                     take_photo_time = time.time()
                 pose_detected = time.time()
 
+            # левая рука вбок
             elif eq_all(lside=[180, 180, 180]):
                 print("POSE 2")
-                cordX += stepXY
+                # pioneer.go_to_local_point_body_fixed(x=1, y=0, z=0, yaw=0)
+                # pioneer.set_manual_speed_body_fixed(vx=0.1, vy=0, vz=0, yaw_rate=0)
+                vx = 0.7
                 pose_detected = time.time()
+                # continue
 
+            # правая рука вбок
             elif eq_all(rside=[0, 0, 0]):
                 print("POSE 3")
-                cordX -= stepXY
+                # pioneer.go_to_local_point_body_fixed(x=-1, y=0, z=0, yaw=0)
+                # pioneer.set_manual_speed_body_fixed(vx=-0.1, vy=0, vz=0, yaw_rate=0)
+                vx = -0.7
                 pose_detected = time.time()
+                # continue
 
+            # левая рука вбок и согнута в локте вверх
             elif eq_all(lside=[180, 180, 90]):
                 print("POSE 4")
-                cordY += stepXY
+                # pioneer.set_manual_speed_body_fixed(vx=0, vy=0.4, vz=0, yaw_rate=0)
+                vy = 1
                 pose_detected = time.time()
 
+            # правая рука вбок и согнута в локте вверх
             elif eq_all(rside=[0, 0, 90]):
                 print("POSE 5")
-                cordY -= stepXY
+                # pioneer.set_manual_speed_body_fixed(vx=0, vy=-0.4, vz=0, yaw_rate=0)
+                vy = -1
                 pose_detected = time.time()
 
-            elif eq_all(lside=[180, 225, 270], rside=[0, 315, 270]):
+            if eq_all(lside=[180, 180, 270], rside=[0, 0, 270]):
                 print("POSE 6")
                 pose_detected = time.time()
                 # если используется НЕ встроенная в компьютер камера
                 if not useIntegratedCam:
                     pioneer.land()
 
-        # если с момента обнаружения жеста прошла секунда - сбросить переменную, блокирующую детектирование
-        if pose_detected != -1 and time.time() - pose_detected > 1:
+        # если с момента обнаружения жеста прошло 10мс - сбросить переменную, блокирующую детектирование
+        if pose_detected != -1 and time.time() - pose_detected > 0.1:
             pose_detected = -1
 
         # если время вызова таймера существует и уже прошло больше 5 секунд, то сохранить фото
@@ -293,34 +318,43 @@ while True:
             take_photo_time = -1
             pose_detected = -1
 
-    # если используется НЕ встроенная в компьютер камера
-    if not useIntegratedCam:
-        # если сконвертированные точки существуют, то работают регуляторы:
-        if converted_points:
-            # регулятор для удержания человека в центре изображения по рысканью (вращение вокруг своей оси)
-            yaw_err = -(IMGW // 2 - converted_points[33].x) * yaw_k
-            yaw_u = yaw_kp * yaw_err - yaw_kd * (yaw_err - yaw_errold)
-            yaw_errold = yaw_err
+        # проверяем, что с последней отправки команды задачи скорости прошло больше 10мс
+        if async_waiter != -1 and time.time() - async_waiter > 0.1:
+            async_waiter = -1
 
-            # регулятор определенного расстояния до человека по оси Y (вперед/назад)
-            y_err = -(-0.15 - converted_points[33].z)
-            y_u = y_kp * y_err - y_kd * (y_err - y_errold)
-            y_errold = y_err
+        # если используется НЕ встроенная в компьютер камера
+        turnoff_block = False
+        if not turnoff_block:
+            if not useIntegratedCam and async_waiter == -1:
+                # если сконвертированные точки существуют, то работают регуляторы:
+                if converted_points:
+                    # регулятор для удержания человека в центре изображения по рысканью (вращение вокруг своей оси)
+                    yaw_err = -(IMGW // 2 - converted_points[33].x) * yaw_k
+                    yaw_u = yaw_kp * yaw_err - yaw_kd * (yaw_err - yaw_errold)
+                    yaw_errold = yaw_err
 
-            # регулятор для удержания человека в центре изображения по оси Z (вверх/вниз)
-            z_err = (IMGH // 2 - converted_points[33].y)
-            z_u = z_kp * z_err - z_kd * (z_err - z_errold)
-            z_errold = z_err
+                    # регулятор определенного расстояния до человека по оси Y (вперед/назад)
+                    y_err = -(-0.15 - converted_points[33].z)
+                    y_u = y_kp * y_err - y_kd * (y_err - y_errold)
+                    y_errold = y_err
 
-            # обновление переменных, содержащих значения (координаты) для удержания коптером
-            yaw += yaw_u
-            cordY += y_u
-            cordZ += z_u
-            pioneer.go_to_local_point(cordX, cordY, cordZ, yaw=yaw)
+                    # регулятор для удержания человека в центре изображения по оси Z (вверх/вниз)
+                    z_err = ((IMGH * 1) // 2 - converted_points[33].y)
+                    z_u = z_kp * z_err - z_kd * (z_err - z_errold)
+                    z_errold = z_err
 
-    # отрисовка всех точек и линий средствами используемой библиотеки
-    mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks,
-                              skeletonDetectorConfigurator.POSE_CONNECTIONS)
+                    # обновление переменных, содержащих значения (координаты) для удержания коптером
+                    vr += -yaw_u
+                    vx += vx
+                    vy += 0
+                    vz += z_u
+                    pioneer.set_manual_speed_body_fixed(vx, vy, vz, vr)
+
+                    async_waiter = time.time()
+
+        # отрисовка всех точек и линий средствами используемой библиотеки
+        mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks,
+                                  skeletonDetectorConfigurator.POSE_CONNECTIONS)
 
     # создание окна с изображением
     cv2.imshow("frame", frame)
@@ -339,7 +373,6 @@ while True:
     if key == ord('l'):
         # если используется НЕ встроенная в компьютер камера
         if not useIntegratedCam:
-            pioneer.command_id = 0
             pioneer.land()
             cordX, cordY = 0, 0
             cordZ = 1.5
@@ -348,9 +381,14 @@ while True:
     if key == ord('j'):
         # если используется НЕ встроенная в компьютер камера
         if not useIntegratedCam:
-            pioneer.command_id = 0
             pioneer.arm()
             pioneer.takeoff()
+            pioneer.go_to_local_point(0, 0, 1.5, 0)
+
+    if key == ord('u'):
+        if not useIntegratedCam:
+            print('Going up....')
+            pioneer.go_to_local_point_body_fixed(x=0, y=0, z=0.5, yaw=0)
 
 # завершение работы захвата изображений с камеры
 if useIntegratedCam:
