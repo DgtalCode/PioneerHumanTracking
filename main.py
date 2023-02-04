@@ -356,6 +356,8 @@ while True:
         mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks,
                                   skeletonDetectorConfigurator.POSE_CONNECTIONS)
 
+    frame = cv2.resize(frame, (1080, 720))
+
     # создание окна с изображением
     cv2.imshow("frame", frame)
 
