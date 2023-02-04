@@ -241,6 +241,7 @@ while True:
 
     # определение точек скелета
     detected_skeletons = skDetector.process(frame)
+    # mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks, skeletonDetectorConfigurator.POSE_CONNECTIONS)
     # detected_skeletons = None
 
     # проверка, найдены ли точки
@@ -272,32 +273,24 @@ while True:
             # левая рука вбок
             elif eq_all(lside=[180, 180, 180]):
                 print("POSE 2")
-                # pioneer.go_to_local_point_body_fixed(x=1, y=0, z=0, yaw=0)
-                # pioneer.set_manual_speed_body_fixed(vx=0.1, vy=0, vz=0, yaw_rate=0)
                 vx = 0.7
                 pose_detected = time.time()
-                # continue
 
             # правая рука вбок
             elif eq_all(rside=[0, 0, 0]):
                 print("POSE 3")
-                # pioneer.go_to_local_point_body_fixed(x=-1, y=0, z=0, yaw=0)
-                # pioneer.set_manual_speed_body_fixed(vx=-0.1, vy=0, vz=0, yaw_rate=0)
                 vx = -0.7
                 pose_detected = time.time()
-                # continue
 
             # левая рука вбок и согнута в локте вверх
             elif eq_all(lside=[180, 180, 90]):
                 print("POSE 4")
-                # pioneer.set_manual_speed_body_fixed(vx=0, vy=0.4, vz=0, yaw_rate=0)
                 vy = 1
                 pose_detected = time.time()
 
             # правая рука вбок и согнута в локте вверх
             elif eq_all(rside=[0, 0, 90]):
                 print("POSE 5")
-                # pioneer.set_manual_speed_body_fixed(vx=0, vy=-0.4, vz=0, yaw_rate=0)
                 vy = -1
                 pose_detected = time.time()
 
@@ -323,40 +316,37 @@ while True:
             async_waiter = -1
 
         # если используется НЕ встроенная в компьютер камера
-        turnoff_block = False
-        if not turnoff_block:
-            if not useIntegratedCam and async_waiter == -1:
-                # если сконвертированные точки существуют, то работают регуляторы:
-                if converted_points:
-                    # регулятор для удержания человека в центре изображения по рысканью (вращение вокруг своей оси)
-                    yaw_err = -(IMGW // 2 - converted_points[33].x) * yaw_k
-                    yaw_u = yaw_kp * yaw_err - yaw_kd * (yaw_err - yaw_errold)
-                    yaw_errold = yaw_err
+        if not useIntegratedCam and async_waiter == -1:
+            # если сконвертированные точки существуют, то работают регуляторы:
+            if converted_points:
+                # регулятор для удержания человека в центре изображения по рысканью (вращение вокруг своей оси)
+                yaw_err = -(IMGW // 2 - converted_points[33].x) * yaw_k
+                yaw_u = yaw_kp * yaw_err - yaw_kd * (yaw_err - yaw_errold)
+                yaw_errold = yaw_err
 
-                    # регулятор определенного расстояния до человека по оси Y (вперед/назад)
-                    y_err = -(-0.15 - converted_points[33].z)
-                    y_u = y_kp * y_err - y_kd * (y_err - y_errold)
-                    y_errold = y_err
+                # регулятор определенного расстояния до человека по оси Y (вперед/назад)
+                y_err = -(-0.15 - converted_points[33].z)
+                y_u = y_kp * y_err - y_kd * (y_err - y_errold)
+                y_errold = y_err
 
-                    # регулятор для удержания человека в центре изображения по оси Z (вверх/вниз)
-                    z_err = ((IMGH * 1) // 2 - converted_points[33].y)
-                    z_u = z_kp * z_err - z_kd * (z_err - z_errold)
-                    z_errold = z_err
+                # регулятор для удержания человека в центре изображения по оси Z (вверх/вниз)
+                z_err = ((IMGH * 1) // 2 - converted_points[33].y)
+                z_u = z_kp * z_err - z_kd * (z_err - z_errold)
+                z_errold = z_err
 
-                    # обновление переменных, содержащих значения (координаты) для удержания коптером
-                    vr += -yaw_u
-                    vx += vx
-                    vy += 0
-                    vz += z_u
-                    pioneer.set_manual_speed_body_fixed(vx, vy, vz, vr)
+                # обновление переменных, содержащих значения (координаты) для удержания коптером
+                vr += -yaw_u
+                vx += vx
+                vy += 0
+                vz += z_u
+                pioneer.set_manual_speed_body_fixed(vx, vy, vz, vr)
 
-                    async_waiter = time.time()
+                async_waiter = time.time()
 
         # отрисовка всех точек и линий средствами используемой библиотеки
-        mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks,
-                                  skeletonDetectorConfigurator.POSE_CONNECTIONS)
+        mpDrawings.draw_landmarks(frame, detected_skeletons.pose_landmarks, skeletonDetectorConfigurator.POSE_CONNECTIONS)
 
-    frame = cv2.resize(frame, (1080, 720))
+    frame = cv2.resize(frame, (1920, 1080))
 
     # создание окна с изображением
     cv2.imshow("frame", frame)
